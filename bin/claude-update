@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Build (or rebuild) the claude-devcontainer image from the project Dockerfile.
+# Bakes the host UID/GID into the image so files written to mounted volumes are
+# owned by the host user rather than root.
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+HERE="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+PROJECT="$(cd "$HERE/.." && pwd)"
+
+IMAGE="${CLAUDE_DEVCONTAINER_IMAGE:-claude-devcontainer:latest}"
+
+exec docker build \
+  --build-arg "USER_UID=$(id -u)" \
+  --build-arg "USER_GID=$(id -g)" \
+  -t "$IMAGE" \
+  -f "$PROJECT/Dockerfile" \
+  "$@" \
+  "$PROJECT"

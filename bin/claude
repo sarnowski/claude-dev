@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Launch Claude Code inside the devcontainer.
+# Any arguments are forwarded to the `claude` CLI inside the container.
+set -euo pipefail
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+HERE="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+exec "$HERE/_claude-run" claude --dangerously-skip-permissions "$@"

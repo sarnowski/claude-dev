@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Internal helper: launches the claude-devcontainer image with all the standard
+# mounts and environment, then execs the command passed as arguments.
+# Used by `claude` and `claude-shell`. Not intended to be called directly.
+set -euo pipefail
+
+# Resolve our own location (following symlinks) so we can find the repo's
+# claude-config/ directory regardless of how this script was invoked.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CLAUDE_CONFIG="$REPO_ROOT/claude-config"
+
+IMAGE="${CLAUDE_DEVCONTAINER_IMAGE:-claude-devcontainer:latest}"
+
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "claude-devcontainer: image '$IMAGE' not found." >&2
+  echo "Run: claude-update" >&2
+  exit 1
+fi
+
+CWD="$(pwd)"
+HOST_HOME="$HOME"
+CONTAINER_HOME="/home/dev"
+CONTAINER_CLAUDE="$CONTAINER_HOME/.claude"
+
+# claude-config/ in the repo IS the container's ~/.claude/. Tracked files
+# (CLAUDE.md, settings.json, agents/, commands/, skills/, hooks/) are shared
+# across machines via git. Volatile state (projects/, todos/, history.jsonl,
+# .credentials.json, etc.) accumulates here at runtime and is gitignored —
+# see claude-config/.gitignore.
+mounts=(
+  -v "$CWD:$CWD"
+  -v "/var/run/docker.sock:/var/run/docker.sock"
+  -v "$CLAUDE_CONFIG:$CONTAINER_CLAUDE"
+)
+
+# ~/.claude.json lives at $HOME root (sibling of ~/.claude/), not inside it,
+# so the claude-config bind doesn't cover it. It holds OAuth account, theme
+# choice, onboarding state, project trust list, etc. — losing it on every run
+# means re-login + re-pick theme. Persist as a single gitignored file.
+HOST_CLAUDE_JSON="$CLAUDE_CONFIG/.claude.json"
+[ -f "$HOST_CLAUDE_JSON" ] || touch "$HOST_CLAUDE_JSON"
+mounts+=(-v "$HOST_CLAUDE_JSON:$CONTAINER_HOME/.claude.json")
+
+# Tool caches: per-machine, gitignored under claude-config/caches/. Each
+# entry is "<dir-name>:<container-path>" — the dir name is what we create
+# inside claude-config/caches/, the container-path is the canonical cache
+# location the tool reads/writes. We deliberately bind narrow paths (e.g.
+# ~/.cargo/registry rather than ~/.cargo) so image-baked toolchain binaries
+# in ~/.cargo/bin, ~/.bun/bin, etc. stay available.
+CACHES_DIR="$CLAUDE_CONFIG/caches"
+caches=(
+  "m2:$CONTAINER_HOME/.m2"
+  "cargo-registry:$CONTAINER_HOME/.cargo/registry"
+  "cargo-git:$CONTAINER_HOME/.cargo/git"
+  "go-pkg-mod:$CONTAINER_HOME/go/pkg/mod"
+  "go-build:$CONTAINER_HOME/.cache/go-build"
+  "mix:$CONTAINER_HOME/.mix"
+  "hex:$CONTAINER_HOME/.hex"
+  "bun:$CONTAINER_HOME/.bun/install/cache"
+  "npm:$CONTAINER_HOME/.npm"
+  "pnpm:$CONTAINER_HOME/.local/share/pnpm"
+  "uv:$CONTAINER_HOME/.cache/uv"
+  "pip:$CONTAINER_HOME/.cache/pip"
+  "helm:$CONTAINER_HOME/.cache/helm"
+  "terraform-d:$CONTAINER_HOME/.terraform.d"
+)
+for entry in "${caches[@]}"; do
+  name="${entry%%:*}"
+  dest="${entry#*:}"
+  src="$CACHES_DIR/$name"
+  mkdir -p "$src"
+  mounts+=(-v "$src:$dest")
+done
+
+# Host config files/dirs, mounted read-only when present.
+# Deliberately NOT included: ~/.claude.json — it holds host-specific project
+# trust paths and MCP server commands that point at host-installed binaries
+# (e.g. macOS-specific paths). Mounting it into a Linux container makes claude
+# try to spawn MCP servers that don't exist and can hang startup. The
+# container gets its own ~/.claude.json, written by claude on first use.
+for path in .gitconfig .ssh .aws .azure .config/gh .kube .config/gcloud; do
+  if [ -e "$HOST_HOME/$path" ]; then
+    mounts+=(-v "$HOST_HOME/$path:$CONTAINER_HOME/$path:ro")
+  fi
+done
+
+# Forward useful env vars when set on the host.
+env_args=()
+for var in TERM COLORTERM LANG LC_ALL EDITOR \
+           ANTHROPIC_API_KEY GITHUB_TOKEN GH_TOKEN \
+           AWS_PROFILE AWS_REGION GOOGLE_CLOUD_PROJECT; do
+  if [ -n "${!var:-}" ]; then
+    env_args+=(-e "$var=${!var}")
+  fi
+done
+
+# Allocate TTY only when stdin is a TTY (so piping into the command still works).
+tty_args=()
+if [ -t 0 ] && [ -t 1 ]; then
+  tty_args=(-it)
+fi
+
+exec docker run --rm \
+  "${tty_args[@]}" \
+  --hostname claude-dev \
+  --workdir "$CWD" \
+  "${mounts[@]}" \
+  "${env_args[@]}" \
+  "$IMAGE" \
+  "$@"

@@ -1,0 +1,43 @@
+# Per-machine state and runtime data created by Claude Code inside this dir
+# (which is mounted as the container's ~/.claude/). None of this should be
+# tracked in the repo.
+
+# Conversation/session state
+projects/
+todos/
+shell-snapshots/
+history.jsonl
+
+# Caches and runtime data
+statsig/
+ide/
+__store.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# local artifacts
+debug/
+backups/
+
+# Auth — only present on Linux (macOS uses Keychain). MUST stay out of git.
+.credentials.json
+
+# Home-root state file (OAuth account, theme, onboarding, project trust).
+# Stored here for convenience; mounted into the container as ~/.claude.json.
+.claude.json
+
+# Per-machine plugin installs (paths are host-specific)
+plugins/
+
+# Per-machine settings overlay
+settings.local.json
+
+# Tool caches (Maven, Cargo, Go, npm, etc.) — bind-mounted into the container
+# at canonical paths like ~/.m2, ~/.cargo/registry, ~/.cache/go-build, etc.
+# Big, per-machine, never tracked.
+caches/
+
+# Misc
+*.tmp
+*.log
