@@ -8,7 +8,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     TZ=Europe/Berlin \
-    DISABLE_AUTOUPDATER=1
+    DISABLE_AUTOUPDATER=1 \
+    CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 
 # --- core OS + build tools ----------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \

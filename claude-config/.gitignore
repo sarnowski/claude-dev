@@ -19,6 +19,8 @@ __store.db
 # local artifacts
 debug/
 backups/
+file-history/
+sessions/
 
 # Auth — only present on Linux (macOS uses Keychain). MUST stay out of git.
 .credentials.json
