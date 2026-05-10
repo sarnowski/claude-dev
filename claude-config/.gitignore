@@ -16,6 +16,7 @@ __store.db
 *.db-shm
 *.db-wal
 .deep-link-register-failed
+.last-cleanup
 
 # local artifacts
 debug/
