@@ -15,6 +15,7 @@ __store.db
 *.db-journal
 *.db-shm
 *.db-wal
+.deep-link-register-failed
 
 # local artifacts
 debug/
