@@ -51,9 +51,9 @@ claude-shell    # bash shell in the same container/environment
 
 `claude-config/` in this repo **is** the container's `~/.claude/` —
 bind-mounted read-write on every launch. Tracked files (`CLAUDE.md`,
-`settings.json`, `agents/`, `commands/`, `skills/`, `hooks/`) are shared
-across machines via git; volatile runtime state (`projects/`, `todos/`,
-`history.jsonl`, etc.) accumulates here but is gitignored
+`settings.shared.json`, `agents/`, `commands/`, `skills/`, `hooks/`) are
+shared across machines via git; volatile runtime state (`projects/`,
+`todos/`, `history.jsonl`, etc.) accumulates here but is gitignored
 (`claude-config/.gitignore`).
 
 - Pulling new commits is enough — no image rebuild needed for config changes.
@@ -61,9 +61,22 @@ across machines via git; volatile runtime state (`projects/`, `todos/`,
 - `git add claude-config/ && git commit && git push` to share to other
   machines.
 
-For per-machine setting overrides, drop a `settings.local.json` in
-`claude-config/` — it's gitignored, and Claude applies it on top of
-`settings.json` automatically.
+**`settings.json` is not tracked.** Claude Code rewrites it freely during a
+session (plugin installs, theme changes, host-specific marketplace paths,
+etc.), so curating diffs each commit isn't sustainable. Instead:
+
+- `settings.shared.json` is the committed baseline.
+- On first launch, `_claude-run` copies it to `settings.json` if that file
+  doesn't exist yet. After that, the live file is yours — Claude writes to it
+  freely, none of it leaks into git.
+- To change the shared baseline (e.g. update the statusLine command, enable a
+  plugin for everyone), edit `settings.shared.json` and commit. Existing
+  checkouts won't auto-pick up the change in their live `settings.json`;
+  delete it and relaunch, or apply the diff by hand.
+
+For per-machine setting overrides on top of `settings.json`, drop a
+`settings.local.json` in `claude-config/` — it's gitignored, and Claude
+applies it as an overlay automatically.
 
 See `claude-config/README.md` for the full story (and a caveat about state
 divergence if you mix this with `claude-native`).

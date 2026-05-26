@@ -7,14 +7,6 @@
     "gropyus-frontend-development@gropyus": true,
     "gropyus-acc-toolkit@gropyus": true
   },
-  "extraKnownMarketplaces": {
-    "gropyus": {
-      "source": {
-        "source": "directory",
-        "path": "/home/tobias/Projects/architecture/gropyus-claude-marketplace"
-      }
-    }
-  },
   "skipDangerousModePermissionPrompt": true,
   "theme": "auto",
   "statusLine": {

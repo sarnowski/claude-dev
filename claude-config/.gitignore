@@ -38,6 +38,11 @@ plans/
 # Per-machine plugin installs (paths are host-specific)
 plugins/
 
+# Live settings file. Bootstrapped from settings.shared.json on first run
+# (see bin/_claude-run); Claude Code freely rewrites it during a session, so
+# we don't track it. Edit settings.shared.json to change the shared baseline.
+settings.json
+
 # Per-machine settings overlay
 settings.local.json
 

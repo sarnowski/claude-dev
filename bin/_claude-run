@@ -16,6 +16,17 @@ SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CLAUDE_CONFIG="$REPO_ROOT/claude-config"
 
+# Bootstrap the live settings.json from the tracked shared baseline on first
+# run. Claude Code rewrites settings.json freely during a session (plugin
+# installs, theme changes, etc.), so we keep it gitignored and treat
+# settings.shared.json as the committed source of truth. After the copy,
+# divergence is intentional and maintained by hand.
+SHARED_SETTINGS="$REPO_ROOT/claude-config/settings.shared.json"
+LIVE_SETTINGS="$REPO_ROOT/claude-config/settings.json"
+if [ ! -f "$LIVE_SETTINGS" ] && [ -f "$SHARED_SETTINGS" ]; then
+  cp "$SHARED_SETTINGS" "$LIVE_SETTINGS"
+fi
+
 IMAGE="${CLAUDE_DEVCONTAINER_IMAGE:-claude-devcontainer:latest}"
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
