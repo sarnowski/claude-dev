@@ -1,4 +1,24 @@
 {
+  "enabledPlugins": {
+    "gropyus-information-security@gropyus": true,
+    "gropyus-infrastructure@gropyus": true,
+    "gropyus-development@gropyus": true,
+    "gropyus-git-commit@gropyus": true,
+    "gropyus-frontend-development@gropyus": true,
+    "gropyus-acc-toolkit@gropyus": true
+  },
+  "extraKnownMarketplaces": {
+    "gropyus": {
+      "source": {
+        "source": "directory",
+        "path": "/home/tobias/Projects/architecture/gropyus-claude-marketplace"
+      }
+    }
+  },
   "skipDangerousModePermissionPrompt": true,
-  "theme": "auto"
+  "theme": "auto",
+  "statusLine": {
+    "type": "command",
+    "command": "bash /home/dev/.claude/statusline-command.sh"
+  }
 }

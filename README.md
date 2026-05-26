@@ -82,6 +82,16 @@ divergence if you mix this with `claude-native`).
 - **Forwarded env vars**: `TERM`, `COLORTERM`, `EDITOR`, `ANTHROPIC_API_KEY`,
   `GITHUB_TOKEN`/`GH_TOKEN`, `AWS_PROFILE`, `AWS_REGION`,
   `GOOGLE_CLOUD_PROJECT`.
+- **Extra paths** via `CLAUDE_DEVCONTAINER_EXTRA_MOUNTS` — colon-separated list
+  of absolute host paths, each bind-mounted read-write at the same path inside
+  the container. Handy to keep a project tree (e.g. `/home/you/Projects`)
+  reachable regardless of where you launch `claude` from. Export it from your
+  shell rc.
+- **Host networking** via `CLAUDE_DEVCONTAINER_HOST_NETWORK=1` — runs the
+  container with `--network host`, so ports bound to `localhost:PORT` inside
+  (dev servers, etc.) are reachable as `localhost:PORT` from WSL, and from
+  Windows via WSL2's localhost forwarding. Off by default (keeps network
+  isolation).
 
 ## Adding tools
 

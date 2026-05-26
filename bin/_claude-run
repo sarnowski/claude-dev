@@ -34,7 +34,27 @@ CONTAINER_CLAUDE="$CONTAINER_HOME/.claude"
 # across machines via git. Volatile state (projects/, todos/, history.jsonl,
 # .credentials.json, etc.) accumulates here at runtime and is gitignored —
 # see claude-config/.gitignore.
-mounts=(
+mounts=()
+
+# Extra host paths mounted read-write at the same path inside the container.
+# Set CLAUDE_DEVCONTAINER_EXTRA_MOUNTS to a colon-separated list of absolute
+# host paths (e.g. "/home/tobias/Projects:/data/scratch"). Useful to keep a
+# project tree reachable regardless of where the wrapper is invoked from.
+# Mounted before $CWD so that, when an extra path is a parent of $CWD, the
+# narrower CWD mount is applied on top.
+if [ -n "${CLAUDE_DEVCONTAINER_EXTRA_MOUNTS:-}" ]; then
+  IFS=':' read -ra extra_paths <<< "$CLAUDE_DEVCONTAINER_EXTRA_MOUNTS"
+  for path in "${extra_paths[@]}"; do
+    [ -z "$path" ] && continue
+    if [ ! -e "$path" ]; then
+      echo "claude-devcontainer: skipping extra mount '$path' (does not exist)" >&2
+      continue
+    fi
+    mounts+=(-v "$path:$path")
+  done
+fi
+
+mounts+=(
   -v "$CWD:$CWD"
   -v "/var/run/docker.sock:/var/run/docker.sock"
   -v "$CLAUDE_CONFIG:$CONTAINER_CLAUDE"
@@ -69,6 +89,7 @@ caches=(
   "uv:$CONTAINER_HOME/.cache/uv"
   "pip:$CONTAINER_HOME/.cache/pip"
   "helm:$CONTAINER_HOME/.cache/helm"
+  "pre-commit:$CONTAINER_HOME/.cache/pre-commit"
   "terraform-d:$CONTAINER_HOME/.terraform.d"
 )
 for entry in "${caches[@]}"; do
@@ -79,15 +100,21 @@ for entry in "${caches[@]}"; do
   mounts+=(-v "$src:$dest")
 done
 
-# Host config files/dirs, mounted read-only when present.
+# Host config files/dirs, mounted read-write when present. Many CLI tools
+# (az, gcloud, aws sso, gh, kubectl) refresh tokens or update session state
+# in their config dirs at runtime — a read-only mount makes them fail.
 # Deliberately NOT included: ~/.claude.json — it holds host-specific project
 # trust paths and MCP server commands that point at host-installed binaries
 # (e.g. macOS-specific paths). Mounting it into a Linux container makes claude
 # try to spawn MCP servers that don't exist and can hang startup. The
 # container gets its own ~/.claude.json, written by claude on first use.
-for path in .gitconfig .ssh .aws .azure .config/gh .kube .config/gcloud; do
+# Ensure ~/.npmrc exists on the host so the bind mount below always succeeds —
+# otherwise docker would create it as a directory on first run.
+[ -e "$HOST_HOME/.npmrc" ] || touch "$HOST_HOME/.npmrc"
+
+for path in .gitconfig .npmrc .ssh .aws .azure .config/gh .kube .config/gcloud; do
   if [ -e "$HOST_HOME/$path" ]; then
-    mounts+=(-v "$HOST_HOME/$path:$CONTAINER_HOME/$path:ro")
+    mounts+=(-v "$HOST_HOME/$path:$CONTAINER_HOME/$path")
   fi
 done
 
@@ -107,9 +134,22 @@ if [ -t 0 ] && [ -t 1 ]; then
   tty_args=(-it)
 fi
 
+# Opt-in host networking so ports bound to localhost inside the container are
+# reachable from WSL/Windows without -p. Set CLAUDE_DEVCONTAINER_HOST_NETWORK=1
+# (or true/yes) to enable. Note: --hostname is ignored under --network host.
+net_args=()
+case "${CLAUDE_DEVCONTAINER_HOST_NETWORK:-}" in
+  1|true|TRUE|yes|YES)
+    net_args=(--network host)
+    ;;
+  *)
+    net_args=(--hostname claude-dev)
+    ;;
+esac
+
 exec docker run --rm \
   "${tty_args[@]}" \
-  --hostname claude-dev \
+  "${net_args[@]}" \
   --workdir "$CWD" \
   "${mounts[@]}" \
   "${env_args[@]}" \

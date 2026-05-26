@@ -17,12 +17,16 @@ __store.db
 *.db-wal
 .deep-link-register-failed
 .last-cleanup
-
-# local artifacts
+mcp-needs-auth-cache.json
+cache/
+tasks/
 debug/
 backups/
 file-history/
 sessions/
+paste-cache/
+teams/
+plans/
 
 # Auth — only present on Linux (macOS uses Keychain). MUST stay out of git.
 .credentials.json

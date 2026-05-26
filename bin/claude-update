@@ -15,9 +15,56 @@ PROJECT="$(cd "$HERE/.." && pwd)"
 
 IMAGE="${CLAUDE_DEVCONTAINER_IMAGE:-claude-devcontainer:latest}"
 
+# Stage any host CA certificates into the build context so the container
+# trusts the same custom roots (e.g. corporate TLS-intercepting proxies).
+# Picked up by the Dockerfile's `COPY ca-certificates/ ...` step.
+CA_STAGE="$PROJECT/ca-certificates"
+HOST_CA_DIR="${CLAUDE_DEVCONTAINER_CA_DIR:-/usr/local/share/ca-certificates}"
+
+rm -rf "$CA_STAGE"
+mkdir -p "$CA_STAGE"
+# Placeholder so the directory always exists in the build context, even when
+# no host CAs are available to inject.
+: > "$CA_STAGE/.keep"
+
+staged=0
+if [ -d "$HOST_CA_DIR" ]; then
+  while IFS= read -r -d '' cert; do
+    if cp -f "$cert" "$CA_STAGE/" 2>/dev/null; then
+      staged=$((staged + 1))
+    fi
+  done < <(find "$HOST_CA_DIR" -maxdepth 2 -type f \
+             \( -name '*.crt' -o -name '*.pem' \) -print0 2>/dev/null)
+fi
+
+if [ "$staged" -gt 0 ]; then
+  echo "claude-update: staged ${staged} CA certificate(s) from ${HOST_CA_DIR}" >&2
+fi
+
+# Detect the host's Docker socket group GID so the container's dev user
+# can be added to a matching group inside the image (and reach the bind-
+# mounted /var/run/docker.sock without sudo). GNU stat lives on Linux,
+# BSD stat on macOS — try both. Skip if the socket is missing or owned
+# by gid 0 (in which case there's no non-root group to join).
+build_args=(
+  --build-arg "USER_UID=$(id -u)"
+  --build-arg "USER_GID=$(id -g)"
+  # Forces the @anthropic-ai/claude-code npm-install layer to rebuild every
+  # run, so `claude-update` always pulls the latest claude-code release.
+  --build-arg "CLAUDE_CODE_CACHE_BUST=$(date +%s)"
+)
+if [ -S /var/run/docker.sock ]; then
+  docker_gid="$(stat -c '%g' /var/run/docker.sock 2>/dev/null \
+              || stat -f '%g' /var/run/docker.sock 2>/dev/null \
+              || true)"
+  if [ -n "${docker_gid:-}" ] && [ "$docker_gid" -gt 0 ] 2>/dev/null; then
+    build_args+=(--build-arg "DOCKER_GID=$docker_gid")
+    echo "claude-update: docker socket gid is ${docker_gid}" >&2
+  fi
+fi
+
 exec docker build \
-  --build-arg "USER_UID=$(id -u)" \
-  --build-arg "USER_GID=$(id -g)" \
+  "${build_args[@]}" \
   -t "$IMAGE" \
   -f "$PROJECT/Dockerfile" \
   "$@" \
