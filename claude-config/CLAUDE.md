@@ -68,6 +68,42 @@ For larger work, write a plan and align first. Once the work is in, delete plann
 - Do NOT keep `PLAN.md` / `ISSUES.md` / `REMEDIATION_PLAN.md` / similar around after the work has landed.
 - Do NOT plan when the task is small enough to just do.
 
+## Documentation
+
+Documentation is load-bearing — bad documentation is worse than none, because it actively misleads. The rules here are not optional.
+
+### Three locations, nothing else
+
+All documentation lives in exactly one of three places. Pick the one a reader would actually look in.
+
+- **README.md** — what the project is: goals, core architecture, data flows, and how to build / test / run locally.
+- **CLAUDE.md** — how to work in the project: workflow, code style, agent notes, and a clear **Definition of Done** as a mechanically verifiable checklist (e.g. "all tests green including smoke tests, lint clean, app runs locally").
+- **Code documentation** — package-, module-, and function-level docs, inline with the code.
+
+Anything outside these three is forbidden:
+
+- Do NOT create a `docs/` folder, `adrs/` folder, `decisions/` folder, `design/` folder, `architecture/` folder, or any other parallel documentation tree.
+- Do NOT write ADRs, RFCs, or standalone design documents. Rationale belongs at the layer it applies to: system-level in README.md, workflow in CLAUDE.md, local design choices in the relevant package or function docs.
+- Do NOT leave planning files (`PLAN.md`, `ISSUES.md`, `NOTES.md`, `TODO.md`, etc.) in the tree after work has landed — git is the record.
+
+### Code documentation — describe intent, not behavior
+
+Code is the source of truth for *what* happens. Documentation exists to convey what cannot be read from the code: the goal the code is meant to achieve, the constraint that shaped it, the non-obvious reason behind a choice. Keep it short and precise — every line of doc is a line that has to be kept true.
+
+- Do NOT describe what the code does — the code already says it. Prose that mirrors code drifts out of sync the moment the code is refactored, and stale documentation is actively harmful: it lies to the next reader, who then has to read the code anyway to find out the doc is wrong.
+- Do NOT restate type signatures, framework defaults, or things the test suite already verifies. If a reader can derive it from the surrounding code, the comment is noise.
+- Do NOT document implementation details on a public API. Describe the contract — what callers can rely on (inputs, outputs, errors, side effects). Implementation details change; the contract should not.
+- Do NOT write speculative or aspirational documentation. Describe what *is*, not what someone hopes will be.
+- Do NOT leave `// TODO` comments. If something is unfinished, finish it or surface it to the user. In the very rare case a TODO is truly unavoidable, a ticket reference is not required — but the bar for leaving one is high.
+
+### Keep documentation true
+
+Documentation is part of the change. If a change makes existing docs wrong, update or delete them in the same change — never in a follow-up.
+
+- Do NOT update code and leave the surrounding doc comment describing the old behavior.
+- Do NOT keep "historical" notes about what the code used to do — git has that.
+- When in doubt, delete. A missing doc forces the reader to read the code (which is correct anyway); a wrong doc misleads them (which is worse than having nothing).
+
 ## Secrets
 
 Treat any secret encountered in prompts, outputs, or files as compromised — tell the user to rotate it.
