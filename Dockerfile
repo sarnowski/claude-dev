@@ -119,12 +119,12 @@ ENV PATH="/usr/lib/go-1.24/bin:${PATH}"
 
 # Node.js 22 LTS via NodeSource. Ubuntu's default `nodejs` is 18 which is EOL
 # (April 2025), so we cannot rely on the distro package. pnpm / typescript /
-# ts-node are stable globals; @anthropic-ai/claude-code lives in the volatile
-# zone because it ships often.
+# ts-node / typescript-language-server are stable globals;
+# @anthropic-ai/claude-code lives in the volatile zone because it ships often.
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
  && apt-get install -y --no-install-recommends nodejs \
  && rm -rf /var/lib/apt/lists/* \
- && npm install -g pnpm typescript ts-node
+ && npm install -g pnpm typescript ts-node typescript-language-server
 
 # Clojure CLI (clj). Needs a JDK at runtime (provided by SDKMAN below); the
 # installer itself does not.
@@ -216,6 +216,26 @@ RUN case "$(dpkg --print-architecture)" in \
  && tar -C /tmp -xzf /tmp/grpcurl.tgz grpcurl \
  && install -m 0755 /tmp/grpcurl /usr/local/bin/grpcurl \
  && rm -f /tmp/grpcurl.tgz /tmp/grpcurl
+
+# Kotlin LSP (standalone JetBrains build). Distributed via JetBrains' CDN, not
+# GitHub releases; requires JDK 25, which SDKMAN installed above. The launcher
+# at /usr/local/bin/kotlin-lsp matches the symlink name the upstream README
+# suggests, so Claude Code's LSP integration finds it on PATH.
+ARG KOTLIN_LSP_VERSION=262.4739.0
+RUN case "$(dpkg --print-architecture)" in \
+      amd64) SUFFIX="" ;; \
+      arm64) SUFFIX="-aarch64" ;; \
+      *) echo "unsupported arch for kotlin-lsp" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL "https://download-cdn.jetbrains.com/kotlin-lsp/${KOTLIN_LSP_VERSION}/kotlin-server-${KOTLIN_LSP_VERSION}${SUFFIX}.tar.gz" \
+      -o /tmp/kotlin-lsp.tgz \
+ && curl -fsSL "https://download-cdn.jetbrains.com/kotlin-lsp/${KOTLIN_LSP_VERSION}/kotlin-server-${KOTLIN_LSP_VERSION}${SUFFIX}.tar.gz.sha256" \
+      -o /tmp/kotlin-lsp.tgz.sha256 \
+ && (cd /tmp && awk '{print $1"  kotlin-lsp.tgz"}' kotlin-lsp.tgz.sha256 | sha256sum -c -) \
+ && mkdir -p /opt/kotlin-lsp \
+ && tar -C /opt/kotlin-lsp --strip-components=1 -xzf /tmp/kotlin-lsp.tgz \
+ && ln -s /opt/kotlin-lsp/bin/intellij-server /usr/local/bin/kotlin-lsp \
+ && rm -f /tmp/kotlin-lsp.tgz /tmp/kotlin-lsp.tgz.sha256
 
 # Convenience CLI tools — this is the layer most likely to grow. Add new
 # debian-packaged dev tools here.

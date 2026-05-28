@@ -68,6 +68,14 @@ For larger work, write a plan and align first. Once the work is in, delete plann
 - Do NOT keep `PLAN.md` / `ISSUES.md` / `REMEDIATION_PLAN.md` / similar around after the work has landed.
 - Do NOT plan when the task is small enough to just do.
 
+## Agent teams
+
+Agent teams are enabled in this devcontainer via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. They spawn multiple parallel Claude Code instances that coordinate through a shared task list and message each other directly — unlike subagents, which only report back to the main agent. Use them when the work genuinely parallelizes: PR review with one teammate per concern (security / performance / tests), debugging with competing hypotheses where teammates argue to disprove each other, or cross-layer features where each teammate owns a non-overlapping slice. Ask the lead in natural language to spawn the team and to clean it up when done; 3–5 teammates is the sweet spot, and teammates don't inherit the lead's conversation history, so put task-specific context in the spawn prompt. Full docs: https://code.claude.com/docs/en/agent-teams.
+
+- Do NOT use teams for sequential work, routine tasks, or anything where coordination cost exceeds the benefit — a single session or subagents are cheaper.
+- Do NOT let two teammates edit the same file — they will clobber each other. Split work by file ownership.
+- Do NOT forget to ask the lead to clean up the team when finished; orphaned teammates keep burning tokens.
+
 ## Documentation
 
 Documentation is load-bearing — bad documentation is worse than none, because it actively misleads. The rules here are not optional.
